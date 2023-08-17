@@ -21,10 +21,4 @@ In this document, we will present the steps necessary to use the system. In its 
        G. pvalue= To determine whether a pattern is a false positive or false negative, the similarity scores are translated into z-scores, for which a one tailed statistical test is done to classify potential FP/FN                 values. The pvalue is set at 5% (0.05), however this can be edited by the user. A higher value will mean more patterns will be identified as potential FP/FN, while a lower will mean less. 
        H. smallnfpvalue= In the case that there are not enough pairwise computations for a statistical test to be used, the tool will determine whether a value is a false positive if its distance with a dominant pattern             is less than a value. The default value is 1.5, or the cost of one insertion of the same class character, but can be edited.
        I. smallnfnvalue= In the case that there are not enough pariwise computations for a statistical test to be used, the tool will determine whether a value is a false negative if its distance with a dominant pattern             is more than a value. The default value is 8.0, or the maximum substitution cost within the generalization tree, but can be edited. 
-4. Results for the column are outpur as a dictionary that contains valid values, outlier values, possible false positives, and possible false negatives. A csv is also output with the same data. Additional information is      provided with the number of total patterns generated, the aggregation coverage results for the column, and the final pattern list. 
-
-
-
-it's not even directed to me??? tf im not watching this. 5 times so 5 ppl wished u good luck?,,, i told u you're overprepared and too intense. so inspector is more of like just manual work. repetition. 
-
-'this is for you' --> starts unbuttoning, then stops... 
+5. Results for the column are outpur as a dictionary that contains valid values, outlier values, possible false positives, and possible false negatives. A csv is also output with the same data. Additional information is      provided with the number of total patterns generated, the aggregation coverage results for the column, and the final pattern list. 
