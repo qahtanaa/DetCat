@@ -646,7 +646,7 @@ def run_dc(param_config):
   limlength = param_config["MaxLen"]
   maxlen = 40
   genlevelcostmultiplier = 1.2
-  minpatmultiplier = 0.7
+  minpatmultiplier = 0.05
   
   lencomparison = 20
   pvalue = 0.05
@@ -660,8 +660,8 @@ def run_dc(param_config):
   cand_list = find_cand_atts(df_dets)
   for att in cand_list:
       cur_att = df.columns[att]
-      if cur_att == 'SSN':
-        continue
+      # if cur_att == 'SSN':
+      #   continue
       print('='*64)
       print("Working on :", cur_att)
       print('='*64)

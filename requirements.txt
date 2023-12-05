@@ -1,0 +1,6 @@
+pandas
+Werkzeug==2.2.2
+dash==0.42.0
+flask==2.2
+strsimpy
+
