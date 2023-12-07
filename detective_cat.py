@@ -4,15 +4,14 @@ import pandas as pd
 import numpy as np
 import csv
 import scipy
-from scipy.cluster.hierarchy import fclusterdata
 import itertools
 from scipy import stats
-from typing_extensions import Counter
+from collections import Counter
 import ntpath
 from functools import reduce
 from strsimpy.string_distance import StringDistance
 from strsimpy.weighted_levenshtein import WeightedLevenshtein
-
+from strsimpy.levenshtein import Levenshtein as ld
 
 # UL=["A",'B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
 UL = list(map(chr, range(ord('A'), ord('Z')+1)))
@@ -48,7 +47,7 @@ def abstractwords(word): #this function builds and returns a list that contains 
 
 coverage={}
 g=[]
-
+AZWL = None
 def read_table(tab_name):
     t_name = ntpath.basename(tab_name)
     try:
@@ -150,6 +149,7 @@ def getscore(b, genlevelcostmultiplier, minpatmultiplier, acc_threshold,
 
 
 def loopthrough(sorted_dict,minpatmultiplier,acc_threshold,lencomparison,pvalue,smallnfpvalue, smallnfnvalue):
+  global AZWL
   def get_rows(i, patternlist):
     coverage_values=list(coverage.values())
     subtractthis=[]
@@ -201,7 +201,128 @@ def loopthrough(sorted_dict,minpatmultiplier,acc_threshold,lencomparison,pvalue,
     return(get_distances(freq_cov,patternlist,outlier_patterns,dominant_patterns, final_values,final_patterns,lencomparison,pvalue,smallnfpvalue, smallnfnvalue))
 
 
-  def get_distances(freq_cov,patternlist,outlier_patterns,dominant_patterns,final_values, final_patterns,lencomparison,pvalue,smallnfpvalue, smallnfnvalue): #calculates distances using class-weighted measure between pairwise dominant-dominant... and dominant-outlier. performs statistical z test to determine if significant results.    
+  def filter_false_predictions(freq_cov,patternlist,outlier_patterns,
+                        dominant_patterns,final_values, final_patterns,
+                        lencomparison,pvalue,smallnfpvalue, smallnfnvalue):
+    '''
+    calculates distances using class-weighted measure between pairwise dominant-dominant... 
+    and dominant-outlier. 
+    performs statistical z test to determine if significant results.    
+    '''
+    domdom=itertools.product(dominant_patterns,dominant_patterns)
+    domout=itertools.product(dominant_patterns,outlier_patterns)
+    domoutscores={}
+    domdomscores={}
+    fpposition=[]
+    fppositiondomdom=[]
+    false_positives=[]
+    false_negatives=[]
+    for i in domout:
+      if (len(i[0]) < lencomparison) and (len(i[1])<lencomparison): 
+      #similarity measure length limitation
+        domoutscores.update({i:AZWL.distance(i[0],i[1])})
+        # try:
+        #   domoutscores.update({i:AZWL.distance(i[0],i[1])})
+        # except:
+        #   if len(i[0]) != len(i[0].encode()):
+        #     print(i, "cannot handle this character")
+    for i in domdom:
+      if (len(i[0])<lencomparison) and (len(i[1])<lencomparison): #limiting pairwise distance calculation for efficiency
+        domdomscores.update({i:AZWL.distance(i[0],i[1])})
+        # try:
+        #   domdomscores.update({i:AZWL.distance(i[0],i[1])})
+        # except:
+        #   if len(i[0]) != len(i[0].encode()):
+        #     print(i, "cannot handle this character")
+    domoutscoreslist=list(domoutscores.values())
+    domoutarr = np.array(domoutscoreslist)
+    domoutz=stats.zscore(domoutarr)
+    if len(domoutz) > 15:
+      for index,i in enumerate(domoutz):
+        if i <0 and scipy.stats.norm.sf(abs(i)) <pvalue:
+          fpposition.append(index)
+      for i in fpposition:
+        if list(domoutscores.keys())[i][1] not in false_positives:
+          false_positives.append(list(domoutscores.keys())[i][1])
+    else:
+       for item in domoutscores.items():
+         if (item[1])<smallnfpvalue and item[0][1] not in false_positives:
+           false_positives.append(item[0][1])
+    domdomscoreslist=list(domdomscores.values())
+    domdomarr = np.array(domdomscoreslist)
+    domdomz=stats.zscore(domdomarr)
+    if len(domdomz)>15:
+      for index,i in enumerate(domdomz):
+       if i >0 and scipy.stats.norm.sf(abs(i)) <pvalue:
+        fppositiondomdom.append(index)
+      for i in fppositiondomdom:
+        if (freq_cov[list(domdomscores.keys())[i][0]]>freq_cov[list(domdomscores.keys())[i][1]]):
+          if list(domdomscores.keys())[i][1] not in false_negatives:
+           false_negatives.append(list(domdomscores.keys())[i][1])
+        else:
+          if list(domdomscores.keys())[i][0] not in false_negatives:
+            false_negatives.append(list(domdomscores.keys())[i][0])
+    else:
+      for item in domdomscores.items():   #this part is added in case the number of pairwise comparisons is smaller than 15, making statistical tests less valid.
+        if(item[1]>smallnfnvalue): #largest cost of substitution of one inter-class character.
+          if (freq_cov.get(item[0][0])>freq_cov.get(item[0][1])):
+            if item[0][1] not in false_negatives:
+              false_negatives.append(item[0][1])
+          else:
+            if item[0][0] not in false_negatives:
+              false_negatives.append(item[0][0])
+    fp_values=[]
+    fn_values=[]
+    for fp_pat in false_positives:
+        fp_values.append(pattern_values.get(fp_pat))
+    for fn_pat in false_negatives:
+        fn_values.append(pattern_values.get(fn_pat))
+    fp_values= [item for sublist in fp_values for item in sublist]
+    fn_values= [item for sublist in fn_values for item in sublist]
+    final_values.update({"FP":fp_values})
+    final_values.update({"FN":fn_values})
+    final_patterns.update({"domdomscores: ": domdomscores})
+    final_patterns.update({"domoutscores: ": domoutscores})
+    final_patterns.update({"FP_pat": false_positives})
+    final_patterns.update({"FN_pat": false_negatives})
+    df = pd.DataFrame.from_dict(final_values,orient='index').transpose()
+    # print('values:',final_values, '\npatterns',final_patterns)
+    
+    df.to_csv('results_col.csv', index=False)
+    # print('*'*10)
+    # print(freq_cov)
+    print(df.columns)
+    
+    output_patterns = dict()
+    output_patterns.clear()
+    output_patterns['dominant'] = dict()
+    output_patterns['outlier patterns'] = dict()
+    output_patterns['FP'] = dict()
+    output_patterns['FN'] = dict()
+    for k in freq_cov.keys():
+      if (k in final_patterns['dominant']):
+        output_patterns['dominant'][k] = freq_cov[k]
+      if (k in final_patterns['outlier patterns']):
+        output_patterns['outlier patterns'][k] = freq_cov[k]
+    # print('=='*24)
+    # print('Domenant Patterns', final_patterns['dominant'])
+    # print('=='*24)
+    # print('Outlier Patterns: ', final_patterns['outlier patterns'])
+    # print('=='*24)
+    # df.to_csv('results_col.csv', index=False)
+    # print('*'*10)
+    # print(freq_cov)
+    # print('*'*10)
+    return output_patterns                     
+  
+  def get_distances(freq_cov,patternlist,outlier_patterns,dominant_patterns,
+                    final_values, final_patterns,lencomparison,pvalue,smallnfpvalue, 
+                    smallnfnvalue): 
+    '''
+    calculates distances using class-weighted measure between pairwise dominant-dominant... 
+    and dominant-outlier. 
+    performs statistical z test to determine if significant results.    
+    '''
     domdom=itertools.product(dominant_patterns,dominant_patterns)
     domout=itertools.product(dominant_patterns,outlier_patterns)
     domoutscores={}
@@ -212,22 +333,24 @@ def loopthrough(sorted_dict,minpatmultiplier,acc_threshold,lencomparison,pvalue,
     false_negatives=[]
     for i in domout:
       if (len(i[0])<lencomparison) and (len(i[1])<lencomparison): #similarity measure length limitation
-        try:
-          domoutscores.update({i:AZWeightedLevenshtein.distance(i[0],i[1])})
-        except:
-          if len(i[0]) != len(i[0].encode()):
-            print(i, "cannot handle this character")
+        domoutscores.update({i:AZWL.distance(i[0],i[1])})
+        # try:
+        #   domoutscores.update({i:AZWL.distance(i[0],i[1])})
+        # except:
+        #   if len(i[0]) != len(i[0].encode()):
+        #     print(i, "cannot handle this character")
     for i in domdom:
       if (len(i[0])<lencomparison) and (len(i[1])<lencomparison): #limiting pairwise distance calculation for efficiency
-        try:
-          domdomscores.update({i:AZWeightedLevenshtein.distance(i[0],i[1])})
-        except:
-          if len(i[0]) != len(i[0].encode()):
-            print(i, "cannot handle this character")
+        domdomscores.update({i:AZWL.distance(i[0],i[1])})
+        # try:
+        #   domdomscores.update({i:AZWL.distance(i[0],i[1])})
+        # except:
+        #   if len(i[0]) != len(i[0].encode()):
+        #     print(i, "cannot handle this character")
     domoutscoreslist=list(domoutscores.values())
     domoutarr = np.array(domoutscoreslist)
     domoutz=stats.zscore(domoutarr)
-    if len(domoutz)>15:
+    if len(domoutz) > 15:
       for index,i in enumerate(domoutz):
         if i <0 and scipy.stats.norm.sf(abs(i)) <pvalue:
           fpposition.append(index)
@@ -523,10 +646,10 @@ def substitution_cost(char_a, char_b):
         return 0.5
     return 1.0
 
-AZWeightedLevenshtein = AZWeightedLevenshtein(
-    substitution_cost_fn=substitution_cost,
-    insertion_cost_fn=insertion_cost,
-    deletion_cost_fn=deletion_cost)
+# AZWeightedLevenshtein = AZWeightedLevenshtein(
+#     substitution_cost_fn=substitution_cost,
+#     insertion_cost_fn=insertion_cost,
+#     deletion_cost_fn=deletion_cost)
 
 
 
@@ -639,15 +762,25 @@ def find_cand_atts(df_dets):
 
 
 def run_dc(param_config):
-  global S 
+  global S, AZWL
+
   tab_name = param_config["tab_name"]
   df = read_table(tab_name)
   acc_threshold = param_config["min_acceptable_coverage"]
   limlength = param_config["MaxLen"]
+  minpatmultiplier = param_config["MCDP"]
   maxlen = 40
   genlevelcostmultiplier = 1.2
-  minpatmultiplier = 0.05
-  
+  d = param_config["sim_function"]
+  if (d == 'Levenshtein distance'):
+      AZWL = ld()              
+  else:
+      AZWL = AZWeightedLevenshtein(
+              substitution_cost_fn=substitution_cost,
+              insertion_cost_fn=insertion_cost,
+              deletion_cost_fn=deletion_cost)
+
+
   lencomparison = 20
   pvalue = 0.05
   smallnfpvalue = 1.5
@@ -667,7 +800,7 @@ def run_dc(param_config):
       print('='*64)
       testlist = pd.Series.to_dict((df[cur_att].value_counts()))
       initialize_S(testlist)
-      print(S)
+      # print(S)
 
       b.clear()
       g.clear()
@@ -707,7 +840,8 @@ def run_dc_local(tab_name):
   limlength = 15
   maxlen = 40
   genlevelcostmultiplier = 1.2
-  minpatmultiplier = 0.7  
+  minpatmultiplier = 0.1
+
   lencomparison = 20
   pvalue = 0.05
   smallnfpvalue = 1.5
@@ -760,7 +894,7 @@ def main():
         print("Usage (",sys.argv[0],"): <data file name>")
         sys.exit(1)
 
-    table_name = sys.argv[1];
+    table_name = sys.argv[1]
     
     run_dc_local(table_name)
     

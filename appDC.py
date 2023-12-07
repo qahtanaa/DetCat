@@ -13,6 +13,7 @@ import csv
 import pandas as pd
 # from extra import find_pfds_csv
 from detective_cat import run_dc
+# from dash import Dash, Input, Output, callback
 
 from components import Header, make_dash_table, get_menu
 
@@ -37,12 +38,11 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.config['suppress_callback_exceptions']=True
 app.title = 'DetCat'
 
-
 gdf = None
 gresults = None
 param_dict = dict()
 param_dict["results_main_dir"] = "../Results/"
-sim_functions = ['Levenshtein distance, Jaro dictance', 'Customized Lev. distance']
+sim_functions = ['Levenshtein distance', 'Cust. Lev. distance']
 
 
 
@@ -70,6 +70,9 @@ def get_csv_files(folder):
 
 
 def dynamic_page():
+    global gdf
+    column_options = list('All')
+
     return html.Div([
         Header(),
         html.Div([    
@@ -100,12 +103,39 @@ def dynamic_page():
                     multiple=False
                 ),
             ]),
+        ], className="row",
+            style={
+                'width': '100%',
+                'height':'50px',
+                'borderWidth': '1px',
+                'borderRadius': '5px',
+                'textAlign': 'center',
+                'margin-left': '25px',
+                'margin-top': '10px',
+            }),
+        html.Hr(),  # horizontal line
+        html.Div(id='output-data-upload'),
+        html.Div(id='output-data-dropdown',
+            style={
+                'width': '100%',
+                'height': '440px',
+                'borderWidth': '1px',
+                'borderRadius': '5px',
+                'textAlign': 'center',
+                'margin-left': '50px',
+                'margin-right': '25px',
+                'overflowY': 'scroll',
+            }),
+        html.Hr(),  # horizontal line        
+        html.Div([
+            html.B('Parameter Settings'),
+            html.Hr(),
             html.Div([
                 dcc.Input(
-                    placeholder='Min Required Coverage',
+                    placeholder='Min Coverage',
                     type='text',
                     value='',
-                    id='MSupport'
+                    id='MCoverage'
                 )
                 ],style={
                         'width': '200',
@@ -114,29 +144,50 @@ def dynamic_page():
                     }),
             html.Div([
                 dcc.Input(
-                    placeholder='Max Value Length',
+                    placeholder='Max Length',
                     type='text',
                     value='',
-                    id='Delta'
+                    id='MLen'
                 )
                 ],style={
                         'width': '200',
+                        'display': 'inline-block',
+                        'margin-left': '5px',
+                    }),
+            html.Div([
+                dcc.Input(
+                    placeholder='Min Cov. per Pattern',
+                    type='text',
+                    value='',
+                    id='MCDP'
+                )
+                ],style={
+                        'width': '200',
+                        'display': 'inline-block',
+                        'margin-left': '5px',
+                    }),
+            html.Div([
+                dcc.Dropdown(
+                        id='sim_function',
+                        options=[{'label': i, 'value': i} for i in sim_functions],
+                        placeholder='Distance Function',
+                    )
+                ],style={
+                        'width': '200px',
                         'display': 'inline-block',
                         'margin-left': '5px',
                     }),
             # html.Div([
             #     dcc.Dropdown(
-            #             id='sim_function',
-            #             options=[{'label': i, 'value': i} for i in sim_functions],
-            #             placeholder='Select a Dataset',
+            #             id='df_columns',
+            #             options=[{'label': i, 'value': i} for i in gdf.columns],
+            #             placeholder='Select a column',
             #         )
             #     ],style={
-            #             'width': '220px',
+            #             'width': '200px',
             #             'display': 'inline-block',
-            #             'margin-left': '25px',
-            #         } 
-                
-            # ),
+            #             'margin-left': '5px',
+            #         }),
             html.Button('Run DetCat', className='fa', id='button', 
                 style={
                         'backgroundColor':'green',
@@ -155,18 +206,19 @@ def dynamic_page():
                 'margin-left': '25px',
                 'margin-top': '10px',
             }),
-        html.Div(id='output-data-upload'),
-        html.Div(id='output-data-dropdown',
-            style={
-                'width': '100%',
-                'height': '440px',
-                'borderWidth': '1px',
-                'borderRadius': '5px',
-                'textAlign': 'center',
-                'margin-left': '50px',
-                'margin-right': '25px',
-                'overflowY': 'scroll',
-            }),
+        # html.Hr(),  # horizontal line
+        # html.Div(id='output-data-upload'),
+        # html.Div(id='output-data-dropdown',
+        #     style={
+        #         'width': '100%',
+        #         'height': '440px',
+        #         'borderWidth': '1px',
+        #         'borderRadius': '5px',
+        #         'textAlign': 'center',
+        #         'margin-left': '50px',
+        #         'margin-right': '25px',
+        #         'overflowY': 'scroll',
+        #     }),
         html.Hr(),  # horizontal line
         html.Div(id = 'output-results',
             style={
@@ -278,6 +330,7 @@ def parse_contents(filename):
 def update_output_data(content, fname, modified):
     if content:
         grid = upload_contents(content, fname)
+        print(content[0])
         options=[{'label': i, 'value': i} for i in get_csv_files(DATA_FOLDER)]
         value=fname
         return grid, options, value
@@ -300,57 +353,75 @@ def output_dropdown(fname):
     Output('output-results', 'children'),
     [Input('button', 'n_clicks')],
     [State('uploaded-datasets', 'value'),
-    State('MSupport', 'value'),
-    State('Delta', 'value'),
-    State('Coverage', 'value')])
-
-def update_output_discovery(n_clicks, fname, max_len, sim_function, min_coverage):
+    State('MCoverage', 'value'),
+    State('MLen', 'value'),
+    State('MCDP', 'value'),
+    State('sim_function', 'value')])
+def update_output_discovery(n_clicks, fname, min_coverage, MLen, MCDP, sim_function):
     
     global gresults
 
     if fname:
-        if conf:
-            if delta:
-                if min_coverage:
-                    param_dict["tab_name"] = os.path.join(DATA_FOLDER, fname)
-                    param_dict["min_acceptable_coverage"] = float(min_coverage) / 100.0 
-                    param_dict["max_len"] = float(max_len)
-                    param_dict["similarity"] = float(sim_function)
-                    gresults = run_dc(param_dict)
-                    
-                    return html.Div([
-                        dcc.Tabs(
-                            id="tabs-with-classes",
-                            value='patt',
-                            parent_className='custom-tabs',
-                            className='tab',
-                            children=[
-                                dcc.Tab(
-                                    label='Patterns',
-                                    value='patt',
-                                    className='custom-tab',
-                                    selected_className='custom-tab--selected'
-                                ),
-                                dcc.Tab(
-                                    label='PFDs',
-                                    value='pfds',
-                                    className='custom-tab',
-                                    selected_className='custom-tab--selected'
-                                ),
-                                dcc.Tab(
-                                    label='Violations',
-                                    value='vio', className='custom-tab',
-                                    selected_className='custom-tab--selected'
-                                ),
-                            ]),
-                        html.Div(id='tabs-content-classes')
-                    ])
-                else:
-                    return html.Div(['The min_coverage is missing'])
-            else:
-                return html.Div(['The allowed violations is missing'])
+        param_dict["tab_name"] = os.path.join(DATA_FOLDER, fname)
+        pmcov = float(min_coverage) / 100.0 if 0 <= float(min_coverage) <= 100 else 0.95
+        param_dict["min_acceptable_coverage"] = pmcov 
+        pmlen = float(MLen) if 5 <= float(MLen) <= 20 else 15
+        param_dict["MaxLen"] = pmlen
+        pMCDP = float(MCDP) if 0.01 <= float(MCDP) <= 0.5 else 0.1
+        param_dict["MCDP"] = pMCDP
+        param_dict["sim_function"] = sim_function
+        gresults = run_dc(param_dict)
+        if len(gresults) > 0:
+            columns = gresults.keys()
+            data = list()
+            for kk in range(len(data)):
+                data.remove(data[0])  # make sure the data list is empty  
+            for c in columns:
+                data.append((c, gresults[c]["dType"])) 
+            if len(columns) > 0:
+                init_df = pd.DataFrame(data, columns = ['columns', 'Type'])
+                return html.Div([
+                    dash_table.DataTable(
+                    data = init_df.to_dict('records'),
+                    columns=[{'name': i, 'id': i} for i in init_df.columns],
+                    id='syn-table',
+                    row_selectable="single",
+                    # row_deletable=True,
+                    css=[{
+                        'selector': '.dash-cell div.dash-cell-value',
+                        'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
+                    }],
+                    style_cell={
+                        'whiteSpace': 'no-wrap',
+                        'overflow': 'hidden',
+                        'textOverflow': 'ellipsis',
+                        'maxWidth': '500px',
+                        'textAlign':'left',
+                        'font-size': '150%',
+                    },
+                    style_cell_conditional=[{
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': 'rgb(248, 248, 248)'
+                    }],
+                    style_header={
+                        'backgroundColor': 'white',
+                        'fontWeight': 'bold'
+                    },
+                    style_table={
+                        'max_rows_in_viewport':15,
+                        'maxHeight': '400px',
+                        'maxWidth':'800px',
+                        'overflowY': 'scroll',
+                        'margin-left': '20px',
+                        # 'border': 'thin lightgrey solid',
+                    }
+                ),
+                    # html.H3('Select a dependency to see its tableau of PFDs'),
+                    html.Div(id='syn-container', className="six columns"),
+                    # html.Div(id='pfds-container-hidden', style={'display':'none'}),
+                ], className="row ")      
         else:
-            html.Div(['The minimum support is missing'])
+            html.Div([''])
     else:
         html.Div(['The data file is missing'])
     if n_clicks:
@@ -361,178 +432,10 @@ def update_output_discovery(n_clicks, fname, max_len, sim_function, min_coverage
 
 
 
-@app.callback(Output('tabs-content-classes', 'children'),
-              [Input('tabs-with-classes', 'value')],
-              [State('uploaded-datasets', 'value')])
-def render_content(tab, tab_name):
-    global gdf, gresults
-    
-    if tab == 'patt':
-        att_names = gdf.columns.tolist()
-        if gresults:
-            df_details = gresults['df_details']
-        tok_or_ngrams = dict()
-        tok_or_ngrams.clear()
-        for d in df_details.keys():
-            tok_or_ngrams[df_details[d]['att_name']] = df_details[d]['tg_vs_ng']
-        data = []
-        cols = ['Attributes', 'Tokens or n-Grams']
-        for i in range(len(data)):
-            data.remove(data[0])
-        gms = gresults['patterns']
-        for k in tok_or_ngrams.keys():
-            new_k = gdf.columns.get_loc(k)
-            # print(new_k, gms.keys())
-            if new_k in gms.keys():
-                data.append([k, tok_or_ngrams[k]])
-            else:
-                data.append([k, '----'])
-        att_df = pd.DataFrame(data, columns=cols)
-        return html.Div([
-            dash_table.DataTable(
-            data=att_df.to_dict('records'),
-            columns=[{'name': i, 'id': i} for i in att_df.columns],
-            id='patterns-table',
-            row_selectable="single",
-            css=[{
-                'selector': '.dash-cell div.dash-cell-value',
-                'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-            }],
-            style_cell={
-                'whiteSpace': 'no-wrap',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'maxWidth': '500px',
-                'textAlign':'left',
-                'font-size': '150%',
-            },
-            style_cell_conditional=[{
-                'if': {'row_index': 'odd'},
-                'backgroundColor': 'rgb(248, 248, 248)'
-            }],
-            style_header={
-                'backgroundColor': 'white',
-                'fontWeight': 'bold'
-            },
-            style_table={
-                'max_rows_in_viewport':15,
-                'maxHeight': '400px',
-                'maxWidth':'600px',
-                'overflowY': 'scroll',
-                'margin-left': '20px',
-                # 'border': 'thin lightgrey solid',
-            }
-        ),
-            # html.H3('Select an attribute to see the patterns extracted from the attribute.'),
-            html.Div(id='patterns-container', className="six columns"), 
-        ], className="row ")
-
-    elif tab == 'pfds':
-        # att_names = gdf.columns.tolist()
-        if gresults:
-            pfds = gresults['pfds']
-        data = []
-        cols = ['Determinant', 'Dependent']
-        for i in range(len(data)):
-            data.remove(data[0])
-        for pfd in pfds:
-            data.append([pfd['det'], pfd['dep']])
-        pfds_df = pd.DataFrame(data, columns=cols)
-        return html.Div([
-            dash_table.DataTable(
-            data=pfds_df.to_dict('records'),
-            columns=[{'name': i, 'id': i} for i in pfds_df.columns],
-            id='pfds-table',
-            row_selectable="single",
-            row_deletable=True,
-            css=[{
-                'selector': '.dash-cell div.dash-cell-value',
-                'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-            }],
-            style_cell={
-                'whiteSpace': 'no-wrap',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'maxWidth': '500px',
-                'textAlign':'left',
-                'font-size': '150%',
-            },
-            style_cell_conditional=[{
-                'if': {'row_index': 'odd'},
-                'backgroundColor': 'rgb(248, 248, 248)'
-            }],
-            style_header={
-                'backgroundColor': 'white',
-                'fontWeight': 'bold'
-            },
-            style_table={
-                'max_rows_in_viewport':15,
-                'maxHeight': '400px',
-                'maxWidth':'600px',
-                'overflowY': 'scroll',
-                'margin-left': '20px',
-                # 'border': 'thin lightgrey solid',
-            }
-        ),
-            # html.H3('Select a dependency to see its tableau of PFDs'),
-            html.Div(id='pfds-container', className="six columns"),
-            html.Div(id='pfds-container-hidden', style={'display':'none'}),
-        ], className="row ")
-
-    elif tab == 'vio':
-        if gresults:
-            pfds = gresults['pfds']
-        data = []
-        cols = ['Determinant', 'Dependent']
-        for i in range(len(data)):
-            data.remove(data[0])
-        for pfd in pfds:
-            data.append([pfd['det'], pfd['dep']])
-        pfds_df = pd.DataFrame(data, columns=cols)
-        return html.Div([
-            dash_table.DataTable(
-            data=pfds_df.to_dict('records'),
-            columns=[{'name': i, 'id': i} for i in pfds_df.columns],
-            id='vios-table',
-            row_selectable="single",
-            css=[{
-                'selector': '.dash-cell div.dash-cell-value',
-                'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-            }],
-            style_cell={
-                'whiteSpace': 'no-wrap',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'maxWidth': '500px',
-                'textAlign':'left',
-                'font-family': 'Times New Roman',
-                'font-size': '150%',
-            },
-            style_cell_conditional=[{
-                'if': {'row_index': 'odd'},
-                'backgroundColor': 'rgb(248, 248, 248)'
-            }],
-            style_header={
-                'backgroundColor': 'white',
-                'fontWeight': 'bold'
-            },
-            style_table={
-                'max_rows_in_viewport':15,
-                'maxHeight': '400px',
-                'maxWidth':'600px',
-                'overflowY': 'scroll',
-                'margin-left': '20px',
-                # 'border': 'thin lightgrey solid',
-            }
-        ),
-            html.Div(id='vios-container', className="six columns"), 
-        ], className="row ")
-
-
 @app.callback(
-    Output('patterns-container', "children"),
-    [Input('patterns-table', "derived_virtual_data"),
-     Input('patterns-table', "derived_virtual_selected_rows")])
+    Output('syn-container', "children"),
+    [Input('syn-table', "derived_virtual_data"),
+     Input('syn-table', "derived_virtual_selected_rows")])
 def update_graphs_patterns(rows, derived_virtual_selected_rows):
     # When the table is first rendered, `derived_virtual_data` and
     # `derived_virtual_selected_rows` will be `None`. This is due to an
@@ -544,103 +447,37 @@ def update_graphs_patterns(rows, derived_virtual_selected_rows):
     # `derived_virtual_data=df.to_rows('dict')` when you initialize
     # the component.
     global gresults, gdf
-    # print(derived_virtual_selected_rows)
     if not(derived_virtual_selected_rows):
         derived_virtual_selected_rows = []
         return html.Div([
             html.H4('') 
         ], className="six columns")
     else:
-        gms = gresults['patterns']
-        if derived_virtual_selected_rows[0] in gms.keys():
-            req_gms = gms[derived_virtual_selected_rows[0]]
-            patt_df = pd.DataFrame(req_gms, columns=['patterns', 'frequency'])
-            return html.Div([
-                dash_table.DataTable(
-                data=patt_df.to_dict('records'),
-                columns=[{'name': i, 'id': i} for i in patt_df.columns],
-                id='patterns-freq-table',
-                css=[{
-                    'selector': '.dash-cell div.dash-cell-value',
-                    'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-                }],
-                style_cell={
-                    'whiteSpace': 'no-wrap',
-                    'overflow': 'hidden',
-                    'textOverflow': 'ellipsis',
-                    'maxWidth': '600px',
-                    'textAlign':'left',
-                    'font-size': '150%',
-                    'font-family': 'Times New Roman'
-                },
-                style_cell_conditional=[{
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': 'rgb(248, 248, 248)'
-                }],
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                },
-                style_table={
-                    'max_rows_in_viewport':15,
-                    'maxHeight': '400px',
-                    'maxWidth':'800px',
-                    'overflowY': 'scroll',
-                    'margin-left': '20px',
-                    # 'border': 'thin lightgrey solid',
-                }
-            ),
-                # html.H3(gdf.columns[derived_virtual_selected_rows] + '   Just for test')
-            ])
-        else:
-            text = '(' + gdf.columns[derived_virtual_selected_rows[0]] + ') has been ignored because it represents ' 
-            text += 'a numerical quantity '
-            return html.Div([
-                # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
-                html.H3(text)
-            ], className="six columns")
+        cur_att = rows[derived_virtual_selected_rows[0]]['columns']
+        ptrns = gresults[cur_att]['dominant']
+        att_ptrns = []
+        for kk in range(len(att_ptrns)):
+            att_ptrns.remove(att_ptrns[0])  # make sure the list is empty 
+        for k in ptrns:
+            att_ptrns.append((k, ptrns[k]))
+        # print (att_ptrns)
+        
+        outliers = gresults[cur_att]['outlier patterns']
+        att_outliers = []
+        for kk in range(len(att_outliers)):
+            att_outliers.remove(att_outliers[0])  # make sure the list is emplty 
+        for k in outliers:
+            att_outliers.append((k, outliers[k]))
+        # print (att_ptrns)
 
-
-
-
-@app.callback(
-    Output('pfds-container', "children"),
-    [Input('pfds-table', "derived_virtual_data"),
-     Input('pfds-table', "derived_virtual_selected_rows")])
-def update_graphs_pfds(rows, derived_virtual_selected_rows):
-    # When the table is first rendered, `derived_virtual_data` and
-    # `derived_virtual_selected_rows` will be `None`. This is due to an
-    # idiosyncracy in Dash (unsupplied properties are always None and Dash
-    # calls the dependent callbacks when the component is first rendered).
-    # So, if `rows` is `None`, then the component was just rendered
-    # and its value will be the same as the component's dataframe.
-    # Instead of setting `None` in here, you could also set
-    # `derived_virtual_data=df.to_rows('dict')` when you initialize
-    # the component.
-    global gresults, gdf
-    # print(derived_virtual_selected_rows)
-    if not(derived_virtual_selected_rows):
-        derived_virtual_selected_rows = []
-        return html.Div([
-            html.H3('')
-        ], className="six columns")
-    else:
-        pfds = gresults['pfds']
-        # if derived_virtual_selected_rows[0] in gms.keys():
-        req_pfd = pfds[derived_virtual_selected_rows[0]]
-        data = []
-        for ii in range(len(data)):
-            data.remove(data[0])
-        for tp in req_pfd['tableau']:
-            ((a,b), c) = tp
-            data.append((a,b,len(c)))
-        cols = ['Determinant Pattern', 'Dependent Pattern', '# affected tuples']
-        tableau_df = pd.DataFrame(data, columns=cols)
+        patt_df = pd.DataFrame(att_ptrns, columns=['pattern (p)', '# values represented by p'])
+        outliers_df = pd.DataFrame(att_outliers, 
+                        columns=['Outlier', 'Frequency'])
         return html.Div([
             dash_table.DataTable(
-            data=tableau_df.to_dict('records'),
-            columns=[{'name': i, 'id': i} for i in tableau_df.columns],
-            id='pfds-tableau-table',
+            data=patt_df.to_dict('records'),
+            columns=[{'name': i, 'id': i} for i in patt_df.columns],
+            id='ptrns-syn-table',
             css=[{
                 'selector': '.dash-cell div.dash-cell-value',
                 'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
@@ -652,7 +489,7 @@ def update_graphs_pfds(rows, derived_virtual_selected_rows):
                 'maxWidth': '600px',
                 'textAlign':'left',
                 'font-size': '150%',
-                'font-family': 'Times New Roman',
+                'font-family': 'Times New Roman'
             },
             style_cell_conditional=[{
                 'if': {'row_index': 'odd'},
@@ -671,272 +508,52 @@ def update_graphs_pfds(rows, derived_virtual_selected_rows):
                 # 'border': 'thin lightgrey solid',
             }
         ),
-            # html.H3(gdf.columns[derived_virtual_selected_rows] + '   Just for test')
+            dash_table.DataTable(
+            data=outliers_df.to_dict('records'),
+            columns=[{'name': i, 'id': i} for i in outliers_df.columns],
+            id='outliers-syn-table',
+            css=[{
+                'selector': '.dash-cell div.dash-cell-value',
+                'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
+            }],
+            style_cell={
+                'whiteSpace': 'no-wrap',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'maxWidth': '600px',
+                'textAlign':'left',
+                'font-size': '150%',
+                'font-family': 'Times New Roman'
+            },
+            style_cell_conditional=[{
+                'if': {'row_index': 'odd'},
+                'backgroundColor': 'rgb(248, 248, 248)'
+            }],
+            style_header={
+                'backgroundColor': 'white',
+                'fontWeight': 'bold'
+            },
+            style_table={
+                'max_rows_in_viewport':15,
+                'maxHeight': '400px',
+                'maxWidth':'800px',
+                'overflowY': 'scroll',
+                'margin-left': '20px',
+                # 'border': 'thin lightgrey solid',
+            }
+        ),
         ])
-        
-
-
-
-@app.callback(Output('pfds-container-hidden', 'children'),
-              [Input('pfds-table', 'data_previous')],
-              [State('pfds-table', 'data')])
-def show_removed_rows(previous, current):
-    global gresults
-    if previous is None:
-        dash.exceptions.PreventUpdate()
-    else:
-        for row in previous:
-            if row not in current:
-                rem_det = row['Determinant'][0]
-                rem_dep = row['Dependent'][0]
-                for jj in range(len(gresults['pfds'])):
-                    if gresults['pfds'][jj]['det'] == row['Determinant'][0] and gresults['pfds'][jj]['dep'] == row['Dependent'][0]:
-                        gresults['pfds'].remove(gresults['pfds'][jj])
-                        # print(gresults['pfds'][jj]['det'], gresults['pfds'][jj]['dep'], jj)
-                        break
-                # print(row['Determinant'][0], '===>', row['Dependent'][0])
-        return html.Div([
-                # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
-                html.H3(""),
-            ])
-
-
-
-
-
-
-@app.callback(
-    Output('vios-container', "children"),
-    [Input('vios-table', "derived_virtual_data"),
-     Input('vios-table', "derived_virtual_selected_rows")])
-def update_graphs_vios(rows, derived_virtual_selected_rows):
-    # When the table is first rendered, `derived_virtual_data` and
-    # `derived_virtual_selected_rows` will be `None`. This is due to an
-    # idiosyncracy in Dash (unsupplied properties are always None and Dash
-    # calls the dependent callbacks when the component is first rendered).
-    # So, if `rows` is `None`, then the component was just rendered
-    # and its value will be the same as the component's dataframe.
-    # Instead of setting `None` in here, you could also set
-    # `derived_virtual_data=df.to_rows('dict')` when you initialize
-    # the component.
-    global gresults, gdf
-    # print(derived_virtual_selected_rows)
-    if not(derived_virtual_selected_rows):
-        derived_virtual_selected_rows = []
-        return html.Div([
-            html.H3('')
-        ], className="six columns")
-    else:
-        pfds = gresults['pfds']
-        # if derived_virtual_selected_rows[0] in gms.keys():
-        req_pfd = pfds[derived_virtual_selected_rows[0]]
-        data = []
-        for ii in range(len(data)):
-            data.remove(data[0])
-        
-        if len(req_pfd['vios']) > 0:
-            vios_df = req_pfd['vios']
-            
-            
-            det_name = ''
-            dep_name = ''
-            
-            for col in vios_df.columns:
-                if col == req_pfd['det']:
-                    det_name = col
-                if col == req_pfd['dep']:
-                    dep_name = col
-            cols = [det_name, dep_name]
-            data = vios_df[cols]
-            prjected_vios_df = pd.DataFrame(data, columns=cols)
-            return html.Div([
-                dash_table.DataTable(
-                data=prjected_vios_df.to_dict('records'),
-                columns=[{'name': i, 'id': i} for i in prjected_vios_df.columns],
-                id='vios-values-table',
-                row_selectable="single",
-                css=[{
-                    'selector': '.dash-cell div.dash-cell-value',
-                    'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-                }],
-                style_cell={
-                    'whiteSpace': 'no-wrap',
-                    'overflow': 'hidden',
-                    'textOverflow': 'ellipsis',
-                    'maxWidth': '600px',
-                    'textAlign':'left',
-                    'font-size': '150%',
-                    'font-family': 'Times New Roman',
-                },
-                style_cell_conditional=[
-                    {'if': {'row_index': 'odd'},
-                    'backgroundColor': 'rgb(248, 248, 248)',},
-                    {'if': {'column_id': det_name},
-                    'backgroundColor': 'white',
-                    'color': '#3D9970',},
-                    {'if': {'column_id': dep_name},
-                    'backgroundColor': 'white',
-                    'color': '#9D3D70',},
-                ],
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold',
-                    # 'textAlign': 'center'
-                },
-                style_table={
-                    'max_rows_in_viewport':15,
-                    'maxHeight': '400px',
-                    # 'maxWidth':'800px',
-                    'overflowY': 'scroll',
-                    'margin-left': '20px',
-                    # 'border': 'thin lightgrey solid',
-                }
-            ),
-            html.H3('Select a violation to see its context'),
-            html.Hr(),    
-            html.Div(id='vios-explain', className="twelve columns"), 
-            ])
-        else:
-            return html.Div([
-                # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
-                html.H3(""),
-            ])
-        
-
-
-
-@app.callback(
-    Output('vios-explain', "children"),
-    [Input('vios-values-table', "derived_virtual_data"),
-     Input('vios-values-table', "derived_virtual_selected_rows"),
-     Input('vios-table', "derived_virtual_data"),
-     Input('vios-table', "derived_virtual_selected_rows")])
-def update_graphs_vios_w_details(rows_vio, derived_virtual_selected_rows_vio, rows_pfds, derived_virtual_selected_rows_pfd):
-    # When the table is first rendered, `derived_virtual_data` and
-    # `derived_virtual_selected_rows` will be `None`. This is due to an
-    # idiosyncracy in Dash (unsupplied properties are always None and Dash
-    # calls the dependent callbacks when the component is first rendered).
-    # So, if `rows` is `None`, then the component was just rendered
-    # and its value will be the same as the component's dataframe.
-    # Instead of setting `None` in here, you could also set
-    # `derived_virtual_data=df.to_rows('dict')` when you initialize
-    # the component.
-    global gresults, gdf
-    # print(derived_virtual_selected_rows)
-    if not(derived_virtual_selected_rows_pfd):
-        derived_virtual_selected_rows_pfd = []
-        return html.Div([
-            html.H3('')
-        ], className="six columns")
-    elif not(derived_virtual_selected_rows_vio):
-        derived_virtual_selected_rows_vio = []
-        return html.Div([
-            html.H3('')
-        ], className="six columns")
-    else:    
-        pfds = gresults['pfds']
-        comp_data = rows_vio[derived_virtual_selected_rows_vio[0]]
-        
-        req_pfd = pfds[derived_virtual_selected_rows_pfd[0]]
-        if len(req_pfd['vios']) == 0:
-            return html.Div([html.H3('')])
-        if not(derived_virtual_selected_rows_vio[0] < len(req_pfd['vios'].index.tolist())):
-            return html.Div([html.H3('')])
-        req_vio = int(req_pfd['vios'].index.tolist()[derived_virtual_selected_rows_vio[0]])
-        req_idx = []
-        for jj in range(len(req_idx)):
-            rec_idx.remove(req_idx[0])
-        det_name = ''
-        dep_name = ''
-        vios_df = req_pfd['vios']
-        for col in vios_df.columns:
-            if col == req_pfd['det']:
-                det_name = col
-            if col == req_pfd['dep']:
-                dep_name = col
-        rule = None
-        for tp in req_pfd['tableau']:
-            ((a, b), c) = tp
-            rule = (a,b)
-            if req_vio in c:
-                req_idx = c
-                break
-        req_vio_df = gdf.loc[req_idx]
-        if not (det_name in comp_data.keys()) or not (dep_name in comp_data.keys()):
-            return html.Div([html.H3("")])
-        # req_vio_rec = pd.DataFrame(req_pfd['vios'].loc[req_vio])
-        # print (req_pfd['vios'].index.tolist(), req_vio)
-        mylist = []
-        for kk in range(len(mylist)):
-            mylist.remove(mylist[0])
-        req_vio_df_idx = req_vio_df.index.tolist()
-        for kk in range(len(req_vio_df_idx)):
-            jj = req_vio_df_idx[kk]
-            if (req_vio_df[det_name][jj] == comp_data[det_name]) and (req_vio_df[dep_name][jj] == comp_data[dep_name]):
-                mylist.append(kk)
-        aa = ''
-        bb = ''
-        if rule:
-            (aa, bb) = rule
-        
-        return html.Div([
-                html.H3("Violation(s) in context:  [ " + aa + '  ==>  ' + bb + ' ]'),
-                dash_table.DataTable(
-                data=req_vio_df.to_dict('records'),
-                columns=[{'name': i, 'id': i} for i in req_vio_df.columns],
-                # id='vios-explain-table',
-                # row_selectable="single",
-                css=[{
-                    'selector': '.dash-cell div.dash-cell-value',
-                    'rule': 'display: inline; white-space: inherit; margin-left: 20px; overflow: inherit; text-overflow: inherit;'
-                }],
-                style_cell={
-                    'whiteSpace': 'no-wrap',
-                    'overflow': 'hidden',
-                    'textOverflow': 'ellipsis',
-                    'maxWidth': '600px',
-                    'textAlign':'left',
-                    'font-size': '150%',
-                    'font-family': 'Times New Roman',
-                },
-                style_cell_conditional=[
-                    {
-                        'if': {'row_index': x,
-                            'column_id': det_name,
-                        },
-                        'backgroundColor': 'lightblue',} for x in mylist
-                ]+[
-                    {
-                        'if': {'row_index': x,
-                            'column_id': dep_name,
-                        },
-                        'backgroundColor': 'lightblue',} for x in mylist
-                ]+[
-                    {'if': {'column_id': det_name,},
-                    'color': '#3D9970',},
-                    {'if': {'column_id': dep_name,},
-                    'color': '#9D3D70',},
-                ],
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                },
-                style_table={
-                    'max_rows_in_viewport':15,
-                    'maxHeight': '400px',
-                    # 'maxWidth':'1000px',
-                    'overflowY': 'scroll',
-                    'margin-left': '20px',
-                    # 'border': 'thin lightgrey solid',
-                }
-            ), 
-            ])
-        # else:
-        #     return html.Div([
-        #         # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
-        #         html.H3(""),
-        #     ])
-
+            # else:
+            #     text = '(' + gdf.columns[derived_virtual_selected_rows[0]] + ') has been ignored because it represents ' 
+            #     text += 'a numerical quantity '
+            #     return html.Div([
+            #         # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
+            #         html.H3(text)
+            #     ], className="six columns")
+    return html.Div([
+        # html.H3('The selected attribute is ( ' + derived_virtual_selected_rows[0] + ' )')
+        html.H3('')
+    ], className="six columns")
 
 
 

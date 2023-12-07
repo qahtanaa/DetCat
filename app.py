@@ -42,7 +42,7 @@ gdf = None
 gresults = None
 param_dict = dict()
 param_dict["results_main_dir"] = "../Results/"
-sim_functions = ['Levenshtein distance', 'Jaro dictance', 'Cust. Lev. distance']
+sim_functions = ['Levenshtein distance', 'Cust. Lev. distance']
 
 
 
