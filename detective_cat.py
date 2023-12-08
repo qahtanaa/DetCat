@@ -404,11 +404,15 @@ def loopthrough(sorted_dict,minpatmultiplier,acc_threshold,lencomparison,pvalue,
     df.to_csv('results_col.csv', index=False)
     # print('*'*10)
     # print(freq_cov)
+    print(pd.DataFrame(df.FP).dropna())
     
     output_patterns = dict()
     output_patterns.clear()
     output_patterns['dominant'] = dict()
     output_patterns['outlier patterns'] = dict()
+    output_patterns['FP'] = dict()
+    output_patterns['FN'] = dict()
+    
     for k in freq_cov.keys():
       if (k in final_patterns['dominant']):
         output_patterns['dominant'][k] = freq_cov[k]
