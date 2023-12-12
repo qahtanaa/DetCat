@@ -10,21 +10,30 @@ The tool is implemented in Python and uses dash library for the graphical interf
 git clone https://github.com/qahtanaa/DetectiveCat.git
 
 cd DetectiveCat
-'''
+```
 * Install the required libraries
 ```
 pip install -r requirements.txt
-'''
+```
 #### Running from the command line
 
 ```
 python detective_cat table_name min_coverage max_len min_cov_per_pattern [default|custom]
-'''
+```
 
-## Running the GUI
+#### Running the GUI
 
 ```
 python appDC.py 
-'''
+```
 
 ## Parameters
+
+Detcat has four main parameters: 
+
+* minimum coverage of the dominant patterns ($\xi$): we add more patterns to the set of dominant patterns until the ratio of the generated values using the dominant patterns to the total number of values is greater than $\xi$; the rest of the patterns are flagged as potential erroneous patterns.
+* The max allowed length for values ($L$): no exhaustive search for patterns in values with length greater than $L$; instead, we use only two patterns (the pattern of the original characters and the fully generalized pattern).
+* The minimum coverage per dominant pattern ($\gamma$): for a pattern $p_i$ to be flagged as dominant pattern, the ratio of the generated values by $p_i$ to the total number of values in the attribute must be greater than $\gamma$; Parameters $\xi$ and $\gamma$ are considered based on the fact that outliers are rare events and should be minority in any given dataset.
+* The similarity measure: we use the customized Levenshtein distance to measure the distance between patterns. However, the original Levenshtein distance can also be tested in filtering the false positives/negatives.
+
+  
