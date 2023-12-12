@@ -774,7 +774,7 @@ def run_dc(param_config):
   limlength = param_config["MaxLen"]
   minpatmultiplier = param_config["MCDP"]
   maxlen = 40
-  genlevelcostmultiplier = 1.2
+  genlevelcostmultiplier = 1
   d = param_config["sim_function"]
   if (d == 'Levenshtein distance'):
       AZWL = ld()              
