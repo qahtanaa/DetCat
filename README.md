@@ -34,6 +34,6 @@ Detcat has four main parameters:
 * minimum coverage of the dominant patterns ($\xi$): we add more patterns to the set of dominant patterns until the ratio of the generated values using the dominant patterns to the total number of values is greater than $\xi$; the rest of the patterns are flagged as potential erroneous patterns.
 * The max allowed length for values ($L$): no exhaustive search for patterns in values with length greater than $L$; instead, we use only two patterns (the pattern of the original characters and the fully generalized pattern).
 * The minimum coverage per dominant pattern ($\gamma$): for a pattern $p_i$ to be flagged as dominant pattern, the ratio of the generated values by $p_i$ to the total number of values in the attribute must be greater than $\gamma$; Parameters $\xi$ and $\gamma$ are considered based on the fact that outliers are rare events and should be minority in any given dataset.
-* The similarity measure: we use the customized Levenshtein distance to measure the distance between patterns. However, the original Levenshtein distance can also be tested in filtering the false positives/negatives.
+* The similarity measure: we use the customized Levenshtein distance to measure the distance between patterns. However, the original Levenshtein distance can also be tested in filtering the false positives/negatives. In the command line, this can be set using `default` for original Levenshtein distance and `custom` for the customized Levenshtein distance. 
 
   
