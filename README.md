@@ -37,3 +37,10 @@ Detcat has four main parameters:
 * The similarity measure: we use the customized Levenshtein distance to measure the distance between patterns. However, the original Levenshtein distance can also be tested in filtering the false positives/negatives. In the command line, this can be set using `default` for original Levenshtein distance and `custom` for the customized Levenshtein distance. 
 
   
+## Testing the tool
+
+Download the [hospital dataset](https://github.com/BigDaMa/raha/tree/master/datasets/hospital) and use the following parameters:
+Min coverage = 99
+Max Length = 15
+Min Cov. per Pattern = 0.1
+Distance Function = Cust. Lev. distance
