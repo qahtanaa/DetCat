@@ -40,7 +40,10 @@ Detcat has four main parameters:
 ## Testing the tool
 
 Download the [hospital dataset](https://github.com/BigDaMa/raha/tree/master/datasets/hospital) and use the following parameters:
+```
 Min coverage = 99
 Max Length = 15
 Min Cov. per Pattern = 0.1
 Distance Function = Cust. Lev. distance
+```
+
