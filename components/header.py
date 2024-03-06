@@ -18,7 +18,7 @@ def get_logo():
 
                 }, className="w3-bar-item w3-button w3-white"),
         html.Div([
-            html.H1('Detective Cat (DetCat): Detecting Categorical Outliers in Relational Datasets'),
+            html.H1('DetCat: Detecting Categorical Outliers in Relational Datasets'),
             # html.H1('through Pattern Functional Dependencies')
         ])
 

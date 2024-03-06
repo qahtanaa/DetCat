@@ -175,7 +175,9 @@ def loopthrough(sorted_dict,minpatmultiplier,acc_threshold,lencomparison,pvalue,
       freq_cov.update({i:b.get(i)})
     total=sum(freq_cov.values())
     freq_cov_2=list(freq_cov.values())
+    # print('Freq_cov_2 = ', freq_cov_2)
     mincov=(np.mean(freq_cov_2)/total)*minpatmultiplier
+    # print('mincov', mincov)
     for value in freq_cov.items():
       coveragevalue=(value[1]/total)
       if coveragevalue > mincov and accumulate < acc_threshold:
@@ -674,7 +676,7 @@ def get_att_details(att):
     att_no_null_values = att.dropna()
     idxA = att_no_null_values.index.tolist()
     no_non_empty = len(att_no_null_values)
-    min_len = len(att_no_null_values[idxA[0]])
+    min_len = len(str(att_no_null_values[idxA[0]]))
     for ix in idxA:
         # find min, max, average length of the values
         v = att_no_null_values[ix]
