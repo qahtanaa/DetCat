@@ -43,7 +43,7 @@ Download the [hospital dataset](https://github.com/BigDaMa/raha/tree/master/data
 
 ```
 Min coverage = 99
-Max Length = 15
+Max Length = 10
 Min Cov. per Pattern = 0.1
 Distance Function = Cust. Lev. distance
 ```
