@@ -12,17 +12,24 @@ def get_logo():
         html.Div([
             html.Img(src='/assets/DetCat.png', id='logo', height='120', width='100')
         ], style={
-                    'width': '15%',
+                    'width': '10%',
                     'display': 'inline-block',
                     'align':'middle'
 
-                }, className="w3-bar-item w3-button w3-white"),
+                }, className="w3-bar-item w3-button w3-blue"),
         html.Div([
-            html.H1('DetCat: Detecting Categorical Outliers in Relational Datasets'),
-            # html.H1('through Pattern Functional Dependencies')
-        ])
+            html.H1('DetCat: Detecting Categorical Outliers'),
+            html.H1(' in Relational Datasets'),
+            
+        ], style={
+                    'white-space':'pre',
+                    'height': '120',
+                    'padding-top':'1em',
+                    'display': 'inline-block',
+                    'vertical-align':'center'
+                })
 
-    ],className="w3-bar w3-blue")
+    ], className="w3-bar w3-blue")
 
 
     # ], className="row gs-header")
@@ -38,33 +45,5 @@ def Footer():
 
     #             }, className="w3-bar-item w3-button w3-white"),
         html.Div([
-            html.A('QCRI-DA', href='http://da.qcri.org')
+            html.A('Data Intensive Systems - UU', href='https://www.uu.nl/en/research/ai-data-science/data-intensive-systems')
         ])
-def make_dash_table(df):
-    ''' Return a dash definition of an HTML table for a Pandas dataframe '''
-    table = []
-    for index, row in df.iterrows():
-        html_row = []
-        for i in range(len(row)):
-            html_row.append(html.Td([row[i]]))
-        table.append(html.Tr(html_row))
-    return table
-
-
-def get_menu():
-    menu = html.Div([
-
-        dcc.Link('Patterns   ', href='/patterns', className="tab first"),
-
-        dcc.Link('PFDs   ', href='/pfds', className="tab"),
-
-        dcc.Link('Violations   ', href='/violations', className="tab"),
-
-        # dcc.Link('Fees & Minimums   ', href='/fees', className="tab"),
-
-        # dcc.Link('Distributions   ', href='/distributions', className="tab"),
-
-        # dcc.Link('News & Reviews   ', href='/news-and-reviews', className="tab")
-
-    ], className="row ")
-    return menu
