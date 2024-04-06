@@ -15,7 +15,7 @@ import pandas as pd
 from detective_cat import run_dc
 # from dash import Dash, Input, Output, callback
 
-from components import Header, make_dash_table, get_menu
+from components import Header
 
 DATA_FOLDER = "./Datasets/Dirty_Data"
 
@@ -83,9 +83,10 @@ def dynamic_page():
                         placeholder='Select a Dataset',
                     )
                 ],style={
-                        'width': '220px',
+                        'width': '300px',
                         'display': 'inline-block',
                         'margin-left': '25px',
+                        'font-size': '150%'
                     } 
                 
             ), 
@@ -98,6 +99,7 @@ def dynamic_page():
                         'backgroundColor':'green',
                         'color':'white',
                         'margin-left': '5px',
+                        'font-size': '150%'
                     }),
                     
                     multiple=False
@@ -128,7 +130,10 @@ def dynamic_page():
             }),
         html.Hr(),  # horizontal line        
         html.Div([
-            html.B('Parameter Settings'),            
+            html.H2('Parameter Settings',
+                    style={'display':'inline-block','margin-left':20, 
+                        'float':"left", 'font-size': '250%',
+                'font-family': 'Times New Roman'}),
             html.Div([
                 html.B('Min Coverage',
                     style={'display':'inline-block','margin-left':80, 
@@ -137,50 +142,30 @@ def dynamic_page():
                         type='text',
                         placeholder='99', 
                         value='99',
-                        style={'display':'inline-block', 'margin-left':80, 'float':"left",
+                        style={'display':'inline-block', 'margin-left':105, 'float':"left",
                         'border': '1px solid black'}),
                 ], style={'display':'inline-block', 
                         'margin-left': '5px', 
                         'width': '100%', 
-                        'float':"left"}),
-            # html.Div([
-            #     dcc.Input(    
-            #         placeholder= 'Min Coverage',
-            #         type='text',
-            #         value='',
-            #         id='MCoverage'
-            #     )
-            #     ],style={
-            #             'width': '200',
-            #             'display': 'inline-block',
-            #             'margin-left': '5px',
-            #         }),
-            # html.Div([
-            #     dcc.Input(
-            #         placeholder='Max Length',
-            #         type='text',
-            #         value='',
-            #         id='MLen'
-            #     )
-            #     ],style={
-            #             'width': '200',
-            #             'display': 'inline-block',
-            #             'margin-left': '5px',
-            #         }),
+                        'float':"left", 
+                        'font-size': '150%'}),                       
+
             html.Div([
                 html.B('Max Length',
                     style={'display':'inline-block','margin-left':80, 
                         'color':'green', 'float':"left"}),
                 dcc.Input(id='MLen',
                         type='text',
-                        placeholder='15', 
-                        value='15',
-                        style={'display':'inline-block', 'margin-left':95, 'float':"left",
+                        placeholder='10', 
+                        value='10',
+                        style={'display':'inline-block', 'margin-left':130, 'float':"left",
                         'border': '1px solid black'}),
                 ], style={'display':'inline-block', 
                         'margin-left': '5px', 
                         'width': '100%', 
-                        'float':"left"}),
+                        'float':"left", 
+                        'font-size': '150%'}),
+            
             html.Div([
                 html.B('Min Cov. per Pattern',
                     style={'display':'inline-block','margin-left':80, 
@@ -194,45 +179,25 @@ def dynamic_page():
                 ], style={'display':'inline-block', 
                         'margin-left': '5px', 
                         'width': '100%', 
-                        'float':"left"}),
-            # html.Div([
-            #     dcc.Input(
-            #         placeholder='Min Cov. per Pattern',
-            #         type='text',
-            #         value='',
-            #         id='MCDP'
-            #     )
-            #     ],style={
-            #             'width': '200',
-            #             'display': 'inline-block',
-            #             'margin-left': '5px',
-            #         }),
+                        'float':"left", 
+                        'font-size': '150%'}),
+            
             html.Div([
                 html.B('Distance Function',
                     style={'display':'inline-block','margin-left':80, 
-                        'color':'green', 'float':"left"}),
+                        'color':'green', 'float':"left", 'font-size': '150%'}),
                 dcc.Dropdown(
                         id='sim_function',
                         options=[{'label': i, 'value': i} for i in sim_functions],
                         # placeholder='Distance Function',
-                        style={'display':'inline-block', 'margin-left':20, 'float':"left",
-                        'width': '210px'}
+                        style={'display':'inline-block', 'margin-left':25, 'float':"left",
+                        'width': '300px', 'height':'40px', 'font-size': '130%', 'vertical-align':'middle'}
                     ),
                 ],style={'display':'inline-block', 
                         'margin-left': '5px', 
                         'width': '100%', 
                         'float':"left"}),
-            # html.Div([
-            #     dcc.Dropdown(
-            #             id='df_columns',
-            #             options=[{'label': i, 'value': i} for i in gdf.columns],
-            #             placeholder='Select a column',
-            #         )
-            #     ],style={
-            #             'width': '200px',
-            #             'display': 'inline-block',
-            #             'margin-left': '5px',
-            #         }),
+            
             html.Div([
                 html.Button('Run DetCat', className='fa', id='button', 
                     style={
@@ -241,33 +206,22 @@ def dynamic_page():
                             'width': '200',
                             'flow':'right',
                             'margin-left': '200px',
-                            'float':'left'                            
+                            'float':'left',
+                            'font-size': '200%'                            
                         })
                 ], style={'width':'100%'}),
             html.Hr(),
         ], className="row",
             style={
                 'width': '100%',
-                'height':'50px',
+                'height':'300px',
                 'borderWidth': '1px',
                 'borderRadius': '5px',
                 'textAlign': 'center',
                 'margin-left': '25px',
                 'margin-top': '10px',
             }),
-        # html.Hr(),  # horizontal line
-        # html.Div(id='output-data-upload'),
-        # html.Div(id='output-data-dropdown',
-        #     style={
-        #         'width': '100%',
-        #         'height': '440px',
-        #         'borderWidth': '1px',
-        #         'borderRadius': '5px',
-        #         'textAlign': 'center',
-        #         'margin-left': '50px',
-        #         'margin-right': '25px',
-        #         'overflowY': 'scroll',
-        #     }),
+        
         html.Hr(),  # horizontal line
         html.Div(id = 'output-results',
             style={
@@ -276,8 +230,9 @@ def dynamic_page():
                 'borderWidth': '1px',
                 'borderRadius': '5px',
                 'textAlign': 'left',
-                'margin-left': '25px',
+                'margin-left': '55px',
                 'margin-right': '25px',
+                'float':'right',
                 'margin-top': '40px'
             }),
         # Footer()
@@ -346,6 +301,7 @@ def parse_contents(filename):
                 'overflow': 'hidden',
                 'textOverflow': 'ellipsis',
                 'maxWidth': 0,
+                'font_size': '200%',
                 'textAlign':'left'
             },
             style_cell_conditional=[{
@@ -445,8 +401,9 @@ def update_output_discovery(n_clicks, fname, min_coverage, MLen, MCDP, sim_funct
                         'overflow': 'hidden',
                         'textOverflow': 'ellipsis',
                         'maxWidth': '500px',
+                        'margin-left':'55px',
                         'textAlign':'left',
-                        'font-size': '150%',
+                        'font-size': '200%',
                     },
                     style_cell_conditional=[{
                         'if': {'row_index': 'odd'},
@@ -537,7 +494,7 @@ def update_graphs_patterns(rows, derived_virtual_selected_rows):
                 'textOverflow': 'ellipsis',
                 'maxWidth': '600px',
                 'textAlign':'left',
-                'font-size': '150%',
+                'font-size': '200%',
                 'font-family': 'Times New Roman'
             },
             style_cell_conditional=[{
@@ -571,7 +528,7 @@ def update_graphs_patterns(rows, derived_virtual_selected_rows):
                 'textOverflow': 'ellipsis',
                 'maxWidth': '600px',
                 'textAlign':'left',
-                'font-size': '150%',
+                'font-size': '200%',
                 'font-family': 'Times New Roman'
             },
             style_cell_conditional=[{
